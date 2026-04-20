@@ -100,14 +100,44 @@ mkdir -p ~/uos_remote_server
 cp "$SCRIPT_DIR/uos_server.py" ~/uos_remote_server/
 cp "$SCRIPT_DIR/test_uos_server.py" ~/uos_remote_server/ 2>/dev/null || true
 
+# 创建启动脚本
+cat > ~/uos_remote_server/start.sh << 'STARTEOF'
+#!/bin/bash
+cd ~/uos_remote_server
+python3 uos_server.py
+STARTEOF
+chmod +x ~/uos_remote_server/start.sh
+
+# 创建桌面快捷方式
+DESKTOP_DIR="$HOME/Desktop"
+if [ -d "$DESKTOP_DIR" ]; then
+    cat > "$DESKTOP_DIR/UOS远程服务端.desktop" << 'DESKEOF'
+[Desktop Entry]
+Name=UOS远程服务端
+Name[zh_CN]=UOS远程服务端
+Comment=UOS远程控制服务端
+Comment[zh_CN]=UOS远程控制服务端
+Exec=/home/用户名/uos_remote_server/start.sh
+Icon=utilities-terminal
+Terminal=false
+Type=Application
+Categories=Network;RemoteAccess;
+StartupNotify=true
+DESKEOF
+    # 替换用户名
+    sed -i "s|用户名|$(whoami)|g" "$DESKTOP_DIR/UOS远程服务端.desktop"
+    chmod +x "$DESKTOP_DIR/UOS远程服务端.desktop"
+    echo "  ✓ 桌面快捷方式已创建"
+fi
+
 echo ""
 echo "=========================================="
 echo "安装完成!"
 echo "=========================================="
 echo ""
-echo "运行方式:"
-echo "  cd ~/uos_remote_server"
-echo "  python3 uos_server.py"
+echo "启动方式:"
+echo "  1. 双击桌面图标 'UOS远程服务端'"
+echo "  2. 或命令行运行: ~/uos_remote_server/start.sh"
 echo ""
 EOF
 
@@ -131,7 +161,7 @@ UOS 远程服务端 - 离线安装包
 【使用方法】
 1. 将整个目录复制到离线 UOS 机器
 2. 进入目录，运行: ./install_offline.sh
-3. 安装完成后，运行: cd ~/uos_remote_server && python3 uos_server.py
+3. 安装完成后，双击桌面图标 "UOS远程服务端" 即可启动
 
 【系统要求】
 - UOS/Debian/Ubuntu 系统
