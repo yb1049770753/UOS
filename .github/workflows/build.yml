@@ -102,43 +102,43 @@ jobs:
         cp test_uos_server.py "$BUILD_DIR/"
         
         # 创建启动脚本
-        cat > "$BUILD_DIR/run.sh" << 'EOF'
-        #!/bin/bash
-        SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-        export PATH="$SCRIPT_DIR/bin:$PATH"
-        export LD_LIBRARY_PATH="$SCRIPT_DIR/lib:$LD_LIBRARY_PATH"
-        if [ -z "$DISPLAY" ]; then
-          export DISPLAY=:0
-        fi
-        exec "$SCRIPT_DIR/uos_server" "$@"
-        EOF
+        cat > "$BUILD_DIR/run.sh" << 'RUNEOF'
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+export PATH="$SCRIPT_DIR/bin:$PATH"
+export LD_LIBRARY_PATH="$SCRIPT_DIR/lib:$LD_LIBRARY_PATH"
+if [ -z "$DISPLAY" ]; then
+  export DISPLAY=:0
+fi
+exec "$SCRIPT_DIR/uos_server" "$@"
+RUNEOF
         chmod +x "$BUILD_DIR/run.sh"
         chmod +x "$BUILD_DIR/uos_server"
         chmod +x "$BUILD_DIR/bin/"* 2>/dev/null || true
         
         # 创建 README
-        cat > "$BUILD_DIR/README.txt" << 'EOF'
-        UOS 远程控制服务端 v1.1 - 完整离线包
-        =====================================
-        
-        【使用方法】
-        1. 解压本包到任意目录
-        2. 进入目录，运行: ./run.sh
-        
-        【文件说明】
-        - uos_server: 主程序
-        - run.sh: 启动脚本（推荐）
-        - bin/: 截图工具等二进制文件
-        - lib/: 依赖的库文件
-        - uos_server.py: Python 源码
-        
-        【系统要求】
-        - Linux AMD64 架构
-        - X11 显示环境
-        
-        【故障排查】
-        查看日志: cat ~/uos_server_debug.log
-        EOF
+        cat > "$BUILD_DIR/README.txt" << 'READMEEOF'
+UOS 远程控制服务端 v1.1 - 完整离线包
+=====================================
+
+【使用方法】
+1. 解压本包到任意目录
+2. 进入目录，运行: ./run.sh
+
+【文件说明】
+- uos_server: 主程序
+- run.sh: 启动脚本（推荐）
+- bin/: 截图工具等二进制文件
+- lib/: 依赖的库文件
+- uos_server.py: Python 源码
+
+【系统要求】
+- Linux AMD64 架构
+- X11 显示环境
+
+【故障排查】
+查看日志: cat ~/uos_server_debug.log
+READMEEOF
         
         # 打包
         tar -czf "${PKG_NAME}.tar.gz" "$BUILD_DIR"
