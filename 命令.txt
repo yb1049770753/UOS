@@ -1,0 +1,12 @@
+📦 UOS 打包详细命令
+
+    安装依赖 (如果还没装过)：
+    Bash
+
+    pip3 install pyinstaller pillow
+
+    执行打包：
+    在 uos_server.py 文件所在的文件夹打开终端，运行：
+    Bash
+
+    pyinstaller --onefile --windowed --name "UOS远程服务端" uos_server.py
