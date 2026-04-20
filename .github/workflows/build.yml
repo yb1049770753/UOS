@@ -43,9 +43,9 @@ jobs:
     - name: Build ARM64
       run: |
         docker run --rm --platform linux/arm64 -v ${{ github.workspace }}:/workspace -w /workspace arm64v8/python:3.9-slim bash -c "
-          apt-get update && apt-get install -y libjpeg-dev zlib1g-dev gcc scrot imagemagick xdotool
-          pip install pyinstaller pillow
-          pyinstaller --onefile --name 'UOS远程服务端_ARM64' --hidden-import PIL uos_server.py
+          apt-get update && apt-get install -y libjpeg-dev zlib1g-dev gcc python3-tk python3-xlib scrot imagemagick xdotool
+          pip install pyinstaller pillow python-xlib
+          pyinstaller --onefile --name 'UOS远程服务端_ARM64' --hidden-import PIL --hidden-import tkinter --hidden-import Xlib uos_server.py
         "
     
     - name: Upload artifact
@@ -54,7 +54,7 @@ jobs:
         name: UOS远程服务端_ARM64
         path: dist/UOS远程服务端_ARM64
 
-  # AMD64/x86 服务端
+  # AMD64/x86 服务端 - 完整离线包
   build-amd64:
     runs-on: ubuntu-latest
     steps:
@@ -63,15 +63,89 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y python3 python3-pip python3-dev libjpeg-dev zlib1g-dev scrot imagemagick xdotool
-        pip3 install pyinstaller pillow
+        sudo apt-get install -y python3 python3-pip python3-dev python3-tk python3-xlib libjpeg-dev zlib1g-dev scrot imagemagick xdotool
+        pip3 install pyinstaller pillow python-xlib
     
-    - name: Build AMD64
+    - name: Build AMD64 executable
       run: |
-        pyinstaller --onefile --name "UOS远程服务端_AMD64" --hidden-import PIL uos_server.py
+        pyinstaller --onefile --name "uos_server" --hidden-import PIL --hidden-import tkinter --hidden-import Xlib uos_server.py
+    
+    - name: Create complete offline package
+      run: |
+        PKG_NAME="UOS远程服务端_v1.1_AMD64_完整离线包"
+        BUILD_DIR="uos_server_package"
+        mkdir -p "$BUILD_DIR/bin" "$BUILD_DIR/lib"
+        
+        # 复制主程序
+        cp dist/uos_server "$BUILD_DIR/"
+        
+        # 复制截图工具和二进制依赖
+        for tool in scrot import xwd convert xdotool; do
+          if command -v $tool &> /dev/null; then
+            cp "$(which $tool)" "$BUILD_DIR/bin/" 2>/dev/null || echo "跳过 $tool"
+          fi
+        done
+        
+        # 收集库文件
+        for binary in "$BUILD_DIR/bin/"*; do
+          if [ -f "$binary" ]; then
+            ldd "$binary" 2>/dev/null | grep "=> /" | awk '{print $3}' | while read lib; do
+              if [ -f "$lib" ] && [ ! -f "$BUILD_DIR/lib/$(basename $lib)" ]; then
+                cp "$lib" "$BUILD_DIR/lib/" 2>/dev/null || true
+              fi
+            done
+          fi
+        done
+        
+        # 复制源码
+        cp uos_server.py "$BUILD_DIR/"
+        cp test_uos_server.py "$BUILD_DIR/"
+        
+        # 创建启动脚本
+        cat > "$BUILD_DIR/run.sh" << 'EOF'
+        #!/bin/bash
+        SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+        export PATH="$SCRIPT_DIR/bin:$PATH"
+        export LD_LIBRARY_PATH="$SCRIPT_DIR/lib:$LD_LIBRARY_PATH"
+        if [ -z "$DISPLAY" ]; then
+          export DISPLAY=:0
+        fi
+        exec "$SCRIPT_DIR/uos_server" "$@"
+        EOF
+        chmod +x "$BUILD_DIR/run.sh"
+        chmod +x "$BUILD_DIR/uos_server"
+        chmod +x "$BUILD_DIR/bin/"* 2>/dev/null || true
+        
+        # 创建 README
+        cat > "$BUILD_DIR/README.txt" << 'EOF'
+        UOS 远程控制服务端 v1.1 - 完整离线包
+        =====================================
+        
+        【使用方法】
+        1. 解压本包到任意目录
+        2. 进入目录，运行: ./run.sh
+        
+        【文件说明】
+        - uos_server: 主程序
+        - run.sh: 启动脚本（推荐）
+        - bin/: 截图工具等二进制文件
+        - lib/: 依赖的库文件
+        - uos_server.py: Python 源码
+        
+        【系统要求】
+        - Linux AMD64 架构
+        - X11 显示环境
+        
+        【故障排查】
+        查看日志: cat ~/uos_server_debug.log
+        EOF
+        
+        # 打包
+        tar -czf "${PKG_NAME}.tar.gz" "$BUILD_DIR"
+        echo "PACKAGE_NAME=${PKG_NAME}.tar.gz" >> $GITHUB_ENV
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: UOS远程服务端_AMD64
-        path: dist/UOS远程服务端_AMD64
+        name: UOS远程服务端_AMD64_完整离线包
+        path: UOS远程服务端_v1.1_AMD64_完整离线包.tar.gz
