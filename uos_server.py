@@ -265,7 +265,7 @@ class UOSServerGUI:
         main_frame.pack(fill=tk.BOTH, expand=True)
         
         # 标题
-        title_label = tk.Label(main_frame, text="🖥️ UOS 远程控制服务端", 
+        title_label = tk.Label(main_frame, text="UOS 远程控制服务端", 
                               font=("微软雅黑", 16, "bold"), bg='#f5f5f5', fg='#333333')
         title_label.pack(pady=(0, 20))
         
@@ -312,7 +312,7 @@ class UOSServerGUI:
         pwd_header = tk.Frame(pwd_frame, bg='#fff7e6')
         pwd_header.pack(fill=tk.X, padx=15, pady=(10, 5))
         
-        tk.Label(pwd_header, text="🔐 连接密码", font=("微软雅黑", 10, "bold"), 
+        tk.Label(pwd_header, text="连接密码", font=("微软雅黑", 10, "bold"), 
                 bg='#fff7e6', fg='#d46b08').pack(side=tk.LEFT)
         
         pwd_value_frame = tk.Frame(pwd_frame, bg='#fff7e6')
@@ -333,7 +333,7 @@ class UOSServerGUI:
                                    highlightbackground='#e0e0e0', highlightthickness=1)
             screen_frame.pack(fill=tk.X, pady=10, ipady=10)
             
-            tk.Label(screen_frame, text="📺 屏幕选择", font=("微软雅黑", 10, "bold"),
+            tk.Label(screen_frame, text="屏幕选择", font=("微软雅黑", 10, "bold"),
                     bg='white', fg='#333333').pack(anchor='w', padx=15, pady=(10, 5))
             
             btn_frame = tk.Frame(screen_frame, bg='white')
@@ -353,7 +353,7 @@ class UOSServerGUI:
                                 highlightbackground='#e0e0e0', highlightthickness=1)
         quality_frame.pack(fill=tk.X, pady=10, ipady=10)
         
-        tk.Label(quality_frame, text="🎨 画质调节", font=("微软雅黑", 10, "bold"),
+        tk.Label(quality_frame, text="画质调节", font=("微软雅黑", 10, "bold"),
                 bg='white', fg='#333333').pack(anchor='w', padx=15, pady=(10, 5))
         
         scale_frame = tk.Frame(quality_frame, bg='white')
