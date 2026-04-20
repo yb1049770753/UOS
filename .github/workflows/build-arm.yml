@@ -25,7 +25,7 @@ jobs:
     
     - name: Build Windows client
       run: |
-        pyinstaller --onefile --windowed --name "UOS远程连接器_Win7+" win_client.py
+        pyinstaller --onefile --windowed --name "UOS远程连接器_Win7+" --add-data "opencv_python;opencv_python" --hidden-import cv2 --hidden-import numpy --hidden-import PIL --hidden-import pywin32 win_client.py
       shell: cmd
     
     - name: Upload Windows client
@@ -48,7 +48,7 @@ jobs:
         docker run --rm --platform linux/386 -v ${{ github.workspace }}:/workspace -w /workspace i386/python:3.9-slim-bullseye bash -c "
           apt-get update && apt-get install -y libjpeg-dev zlib1g-dev xclip xdotool
           pip install pyinstaller pillow
-          pyinstaller --onefile --windowed --name 'UOS远程服务端_x86' uos_server.py
+          pyinstaller --onefile --windowed --name 'UOS远程服务端_x86' --hidden-import PIL --hidden-import PIL.ImageGrab uos_server.py
         "
     
     - name: Upload x86 artifact
@@ -82,7 +82,7 @@ jobs:
           
         run: |
           cd ${{ github.workspace }}
-          pyinstaller --onefile --windowed --name "UOS远程服务端_ARM64" uos_server.py
+          pyinstaller --onefile --windowed --name "UOS远程服务端_ARM64" --hidden-import PIL --hidden-import PIL.ImageGrab uos_server.py
           ls -la dist/
           
     - name: Upload ARM64 artifact
@@ -115,7 +115,7 @@ jobs:
           
         run: |
           cd ${{ github.workspace }}
-          pyinstaller --onefile --windowed --name "UOS远程服务端_ARM32" uos_server.py
+          pyinstaller --onefile --windowed --name "UOS远程服务端_ARM32" --hidden-import PIL --hidden-import PIL.ImageGrab uos_server.py
           ls -la dist/
           
     - name: Upload ARM32 artifact
