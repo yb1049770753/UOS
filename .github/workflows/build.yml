@@ -19,7 +19,7 @@ jobs:
     
     - name: Install dependencies
       run: |
-        pip install pyinstaller pillow opencv-python numpy pywin32
+        pip install pyinstaller pillow pywin32
     
     - name: Build Windows client
       run: |
@@ -43,9 +43,9 @@ jobs:
     - name: Build ARM64
       run: |
         docker run --rm --platform linux/arm64 -v ${{ github.workspace }}:/workspace -w /workspace arm64v8/python:3.9-slim bash -c "
-          apt-get update && apt-get install -y libjpeg-dev zlib1g-dev gcc
+          apt-get update && apt-get install -y libjpeg-dev zlib1g-dev gcc scrot imagemagick xdotool
           pip install pyinstaller pillow
-          pyinstaller --onefile --windowed --name 'UOS远程服务端_ARM64' --hidden-import PIL --hidden-import PIL.ImageGrab uos_server.py
+          pyinstaller --onefile --name 'UOS远程服务端_ARM64' --hidden-import PIL uos_server.py
         "
     
     - name: Upload artifact
@@ -63,12 +63,12 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y python3 python3-pip python3-dev libjpeg-dev zlib1g-dev
+        sudo apt-get install -y python3 python3-pip python3-dev libjpeg-dev zlib1g-dev scrot imagemagick xdotool
         pip3 install pyinstaller pillow
     
     - name: Build AMD64
       run: |
-        pyinstaller --onefile --windowed --name "UOS远程服务端_AMD64" --hidden-import PIL --hidden-import PIL.ImageGrab uos_server.py
+        pyinstaller --onefile --name "UOS远程服务端_AMD64" --hidden-import PIL uos_server.py
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4

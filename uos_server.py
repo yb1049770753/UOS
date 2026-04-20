@@ -11,7 +11,159 @@ import random
 import string
 import tkinter as tk
 from tkinter import messagebox, ttk
-from PIL import ImageGrab
+from PIL import Image
+
+# Linux截图函数 - 兼容UOS
+_screenshot_method = None  # 缓存可用的截图方法
+_temp_dir = None
+
+def _detect_screenshot_method():
+    """检测系统可用的截图方法"""
+    global _screenshot_method, _temp_dir
+    import tempfile
+    _temp_dir = tempfile.gettempdir()
+    
+    # 检测scrot
+    try:
+        r = subprocess.run(['which', 'scrot'], capture_output=True, timeout=2)
+        if r.returncode == 0:
+            _screenshot_method = 'scrot'
+            return
+    except:
+        pass
+    
+    # 检测ImageMagick import
+    try:
+        r = subprocess.run(['which', 'import'], capture_output=True, timeout=2)
+        if r.returncode == 0:
+            _screenshot_method = 'import'
+            return
+    except:
+        pass
+    
+    # 检测gnome-screenshot
+    try:
+        r = subprocess.run(['which', 'gnome-screenshot'], capture_output=True, timeout=2)
+        if r.returncode == 0:
+            _screenshot_method = 'gnome'
+            return
+    except:
+        pass
+    
+    # 检测deepin-screenshot（UOS/Deepin自带）
+    try:
+        r = subprocess.run(['which', 'deepin-screenshot'], capture_output=True, timeout=2)
+        if r.returncode == 0:
+            _screenshot_method = 'deepin'
+            return
+    except:
+        pass
+    
+    # 检测xwd
+    try:
+        r = subprocess.run(['which', 'xwd'], capture_output=True, timeout=2)
+        if r.returncode == 0:
+            _screenshot_method = 'xwd'
+            return
+    except:
+        pass
+    
+    # 检测xdg-screenshot
+    try:
+        r = subprocess.run(['which', 'xdg-screenshot'], capture_output=True, timeout=2)
+        if r.returncode == 0:
+            _screenshot_method = 'xdg'
+            return
+    except:
+        pass
+    
+    _screenshot_method = 'none'
+
+
+def linux_screenshot(bbox=None):
+    """Linux截图，兼容UOS系统"""
+    global _screenshot_method
+    
+    if _screenshot_method is None:
+        _detect_screenshot_method()
+    
+    env = {**os.environ, 'DISPLAY': ':0'}
+    method = _screenshot_method
+    
+    if method == 'scrot':
+        try:
+            tmp = os.path.join(_temp_dir, f'uos_scr_{os.getpid()}.png')
+            subprocess.run(['scrot', '-o', tmp], capture_output=True, timeout=3, env=env)
+            if os.path.exists(tmp) and os.path.getsize(tmp) > 100:
+                img = Image.open(tmp)
+                if bbox:
+                    img = img.crop(bbox)
+                return img.convert('RGB')
+        except:
+            pass
+    
+    if method in ('import', 'gnome', 'deepin', 'xdg'):
+        try:
+            tmp = os.path.join(_temp_dir, f'uos_scr_{os.getpid()}.png')
+            if method == 'import':
+                subprocess.run(['import', '-window', 'root', '-quality', '1', tmp],
+                             capture_output=True, timeout=3, env=env)
+            elif method == 'gnome':
+                subprocess.run(['gnome-screenshot', '-f', tmp],
+                             capture_output=True, timeout=3, env=env)
+            elif method == 'deepin':
+                subprocess.run(['deepin-screenshot', '-s', tmp],
+                             capture_output=True, timeout=3, env=env)
+            if os.path.exists(tmp) and os.path.getsize(tmp) > 100:
+                img = Image.open(tmp)
+                if bbox:
+                    img = img.crop(bbox)
+                return img.convert('RGB')
+        except:
+            pass
+    
+    if method == 'xwd':
+        try:
+            xwd_result = subprocess.run(
+                ['xwd', '-root', '-silent'],
+                capture_output=True, timeout=3, env=env
+            )
+            if xwd_result.returncode == 0 and len(xwd_result.stdout) > 100:
+                # 尝试用convert转换
+                try:
+                    convert_result = subprocess.run(
+                        ['convert', 'xwd:-', 'png:-'],
+                        input=xwd_result.stdout,
+                        capture_output=True, timeout=3
+                    )
+                    if convert_result.returncode == 0:
+                        img = Image.open(io.BytesIO(convert_result.stdout))
+                        if bbox:
+                            img = img.crop(bbox)
+                        return img.convert('RGB')
+                except:
+                    # 没有convert，尝试直接解析xwd
+                    pass
+        except:
+            pass
+    
+    # 所有方法都失败，尝试用Python的X11截图
+    try:
+        from Xlib.display import Display
+        from Xlib import X
+        display = Display(':0')
+        screen = display.screen()
+        geom = screen.root.get_geometry()
+        raw = screen.root.get_image(0, 0, geom.width, geom.height, X.ZPixmap, 0xffffffff)
+        img = Image.frombytes('RGB', (geom.width, geom.height), raw.data, 'raw', 'BGRX')
+        if bbox:
+            img = img.crop(bbox)
+        return img
+    except:
+        pass
+    
+    # 彻底失败
+    return Image.new('RGB', (1, 1), (0, 0, 0))
 
 
 class UOSServerGUI:
@@ -34,8 +186,11 @@ class UOSServerGUI:
         # 初始化GUI
         self.setup_ui()
         
-        # 允许远程控制权限
-        os.system("xhost +local:all > /dev/null 2>&1")
+        # 允许远程控制权限（如果xhost可用）
+        try:
+            subprocess.run(["xhost", "+local:"], capture_output=True, timeout=2)
+        except:
+            pass
         
         # 启动后台线程
         threading.Thread(target=self.handle_commands, daemon=True).start()
@@ -479,7 +634,7 @@ class UOSServerGUI:
         while self.is_running:
             try:
                 bbox = self.get_capture_bbox()
-                img = ImageGrab.grab(bbox=bbox)
+                img = linux_screenshot(bbox=bbox)
                 
                 buf = io.BytesIO()
                 img.save(buf, format='JPEG', quality=self.quality)
@@ -494,5 +649,15 @@ class UOSServerGUI:
 
 
 if __name__ == "__main__":
-    app = UOSServerGUI()
-    app.root.mainloop()
+    try:
+        app = UOSServerGUI()
+        app.root.mainloop()
+    except Exception as e:
+        import traceback
+        try:
+            root = tk.Tk()
+            root.withdraw()
+            messagebox.showerror("程序错误", f"UOS远程服务端启动失败:\n{e}\n\n{traceback.format_exc()}")
+        except:
+            print(f"Fatal error: {e}")
+            traceback.print_exc()

@@ -8,14 +8,6 @@ import ctypes
 import json
 import pickle
 from tkinter import filedialog, messagebox, simpledialog, ttk
-
-# 保持环境路径配置
-site_packages_path = r'c:\users\10497\appdata\local\programs\python\python38\lib\site-packages'
-if site_packages_path not in sys.path:
-    sys.path.append(site_packages_path)
-
-import cv2
-import numpy as np
 import tkinter as tk
 from PIL import Image, ImageTk
 
@@ -26,7 +18,6 @@ CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".uos_remote_config.pkl")
 class RemoteClient:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.withdraw()
         
         # 加载配置
         self.config = self.load_config()
@@ -61,17 +52,18 @@ class RemoteClient:
         # 历史记录
         self.history_ips = self.config.get('history_ips', [])
         
-        # 显示连接对话框
+        # 显示连接对话框（直接用主窗口）
+        self.connected = False
         self.show_connect_dialog()
         
-        if not self.uos_ip:
-            self.root.destroy()
-            return
-        
-        # 建立连接
-        if not self.connect():
-            self.root.destroy()
-            return
+        # 启动主循环
+        self.root.mainloop()
+    
+    def on_connect_success(self):
+        """连接成功后切换到远程控制界面"""
+        # 清空连接界面
+        for widget in self.root.winfo_children():
+            widget.destroy()
         
         # 设置UI
         self.setup_ui()
@@ -83,7 +75,6 @@ class RemoteClient:
         threading.Thread(target=self.clipboard_monitor, daemon=True).start()
         
         self.update_loop()
-        self.root.mainloop()
     
     def load_config(self):
         """加载配置"""
@@ -104,27 +95,24 @@ class RemoteClient:
             pass
     
     def show_connect_dialog(self):
-        """显示连接对话框"""
-        dialog = tk.Toplevel(self.root)
-        dialog.title("连接到 UOS 服务端")
-        dialog.geometry("350x250")
-        dialog.resizable(False, False)
-        dialog.transient(self.root)
-        dialog.grab_set()
+        """显示连接对话框 - 直接在主窗口上"""
+        self.root.title("UOS 远程连接器")
+        self.root.geometry("400x300")
+        self.root.resizable(False, False)
         
         # 居中
-        dialog.update_idletasks()
-        x = (dialog.winfo_screenwidth() - 350) // 2
-        y = (dialog.winfo_screenheight() - 250) // 2
-        dialog.geometry(f"350x250+{x}+{y}")
+        self.root.update_idletasks()
+        x = (self.root.winfo_screenwidth() - 400) // 2
+        y = (self.root.winfo_screenheight() - 300) // 2
+        self.root.geometry(f"400x300+{x}+{y}")
         
         # 标题
-        tk.Label(dialog, text="🔌 连接到 UOS 服务端", 
-                font=("微软雅黑", 14, "bold")).pack(pady=15)
+        tk.Label(self.root, text="UOS 远程连接器", 
+                font=("微软雅黑", 16, "bold")).pack(pady=20)
         
         # IP输入
-        ip_frame = tk.Frame(dialog)
-        ip_frame.pack(fill=tk.X, padx=30, pady=10)
+        ip_frame = tk.Frame(self.root)
+        ip_frame.pack(fill=tk.X, padx=40, pady=5)
         
         tk.Label(ip_frame, text="IP地址:", font=("微软雅黑", 10)).pack(anchor='w')
         
@@ -138,27 +126,31 @@ class RemoteClient:
         ip_combo.pack(fill=tk.X, pady=5)
         
         # 密码输入
-        pwd_frame = tk.Frame(dialog)
-        pwd_frame.pack(fill=tk.X, padx=30, pady=10)
+        pwd_frame = tk.Frame(self.root)
+        pwd_frame.pack(fill=tk.X, padx=40, pady=5)
         
         tk.Label(pwd_frame, text="连接密码:", font=("微软雅黑", 10)).pack(anchor='w')
         
         pwd_entry = tk.Entry(pwd_frame, font=("Consolas", 11), show="*")
         pwd_entry.pack(fill=tk.X, pady=5)
         
+        # 状态标签
+        status_label = tk.Label(self.root, text="", font=("微软雅黑", 9), fg="red")
+        status_label.pack()
+        
         # 按钮
-        btn_frame = tk.Frame(dialog)
-        btn_frame.pack(pady=20)
+        btn_frame = tk.Frame(self.root)
+        btn_frame.pack(pady=15)
         
         def on_connect():
             self.uos_ip = ip_var.get().strip()
             self.password = pwd_entry.get().strip()
             
             if not self.uos_ip:
-                messagebox.showerror("错误", "请输入IP地址")
+                status_label.config(text="请输入IP地址")
                 return
             if not self.password:
-                messagebox.showerror("错误", "请输入连接密码")
+                status_label.config(text="请输入连接密码")
                 return
             
             # 保存到历史记录
@@ -168,17 +160,26 @@ class RemoteClient:
                 self.config['history_ips'] = self.history_ips
                 self.save_config()
             
-            dialog.destroy()
+            # 尝试连接
+            status_label.config(text="正在连接...", fg="#1890ff")
+            self.root.update()
+            
+            if self.connect():
+                self.connected = True
+                self.on_connect_success()
+            else:
+                status_label.config(text="连接失败，请检查IP和密码", fg="red")
         
-        tk.Button(btn_frame, text="连接", font=("微软雅黑", 11), 
-                 bg="#1890ff", fg="white", width=12,
-                 command=on_connect).pack(side=tk.LEFT, padx=5)
+        connect_btn = tk.Button(btn_frame, text="连接", font=("微软雅黑", 11), 
+                 bg="#1890ff", fg="white", width=10,
+                 command=on_connect)
+        connect_btn.pack(side=tk.LEFT, padx=5)
         
-        tk.Button(btn_frame, text="取消", font=("微软雅黑", 11),
-                 width=12, command=lambda: dialog.destroy()).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="退出", font=("微软雅黑", 11),
+                 width=10, command=self.root.destroy).pack(side=tk.LEFT, padx=5)
         
-        # 等待对话框关闭
-        self.root.wait_window(dialog)
+        # 回车键连接
+        self.root.bind('<Return>', lambda e: on_connect())
     
     def connect(self):
         """建立连接并认证"""
@@ -431,20 +432,20 @@ class RemoteClient:
         try:
             import win32clipboard
             win32clipboard.OpenClipboard()
-            
-            # 检查是否有文件
-            if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_HDROP):
-                # 文件粘贴
-                files = win32clipboard.GetClipboardData(win32clipboard.CF_HDROP)
-                for f_path in files:
-                    if os.path.isfile(f_path):
-                        self.transfer_queue.put(f_path)
-            elif win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_UNICODETEXT):
-                # 文本粘贴
-                text = win32clipboard.GetClipboardData(win32clipboard.CF_UNICODETEXT)
-                self.send_cmd("type", text)
-            
-            win32clipboard.CloseClipboard()
+            try:
+                # 检查是否有文件
+                if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_HDROP):
+                    # 文件粘贴
+                    files = win32clipboard.GetClipboardData(win32clipboard.CF_HDROP)
+                    for f_path in files:
+                        if os.path.isfile(f_path):
+                            self.transfer_queue.put(f_path)
+                elif win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_UNICODETEXT):
+                    # 文本粘贴
+                    text = win32clipboard.GetClipboardData(win32clipboard.CF_UNICODETEXT)
+                    self.send_cmd("type", text)
+            finally:
+                win32clipboard.CloseClipboard()
         except:
             pass
         return "break"
@@ -458,12 +459,17 @@ class RemoteClient:
             while self.is_running and self.clipboard_monitor_running:
                 try:
                     win32clipboard.OpenClipboard()
-                    if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_UNICODETEXT):
-                        text = win32clipboard.GetClipboardData(win32clipboard.CF_UNICODETEXT)
-                        if text != self.last_clipboard and len(text) < 10000:
-                            self.last_clipboard = text
-                            self.send_cmd("clipboard", text)
-                    win32clipboard.CloseClipboard()
+                    try:
+                        if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_UNICODETEXT):
+                            text = win32clipboard.GetClipboardData(win32clipboard.CF_UNICODETEXT)
+                            if text != self.last_clipboard and len(text) < 10000:
+                                self.last_clipboard = text
+                                self.send_cmd("clipboard", text)
+                    finally:
+                        try:
+                            win32clipboard.CloseClipboard()
+                        except:
+                            pass
                 except:
                     pass
                 time.sleep(0.5)
@@ -747,4 +753,15 @@ class RemoteClient:
 
 
 if __name__ == "__main__":
-    RemoteClient()
+    try:
+        RemoteClient()
+    except Exception as e:
+        import traceback
+        try:
+            from tkinter import messagebox
+            root = tk.Tk()
+            root.withdraw()
+            messagebox.showerror("程序错误", f"UOS远程连接器启动失败:\n{e}\n\n{traceback.format_exc()}")
+        except:
+            print(f"Fatal error: {e}")
+            traceback.print_exc()
