@@ -8,12 +8,14 @@ import queue
 import ctypes
 import json
 import pickle
+import numpy as np
+import cv2
 from tkinter import filedialog, messagebox, simpledialog, ttk
 import tkinter as tk
 from PIL import Image, ImageTk
 
 # Version
-VERSION = "1.3"
+VERSION = "1.4"
 APP_NAME = f"UOS远程连接器_v{VERSION}"
 
 # Config file path
@@ -745,9 +747,16 @@ class RemoteClient:
                         self.fps_label.config(text=f"FPS: {fps}")
                         frame_count = 0
                         last_fps_time = current_time
+                else:
+                    print(f"[Receive] cv2 decode failed, data size={len(data)}")
+                    # 保存失败的图片用于调试
+                    with open("C:/Users/10497/Desktop/debug_failed.jpg", "wb") as f:
+                        f.write(data)
                         
             except Exception as e:
-                print(f"接收错误: {e}")
+                print(f"[Receive Error] {e}")
+                import traceback
+                traceback.print_exc()
                 self.status_label.config(text="连接断开", fg="#ff4d4f")
                 break
     
