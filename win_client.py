@@ -15,7 +15,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 
 # Version
-VERSION = "2.0"
+VERSION = "2.1"
 APP_NAME = f"UOS远程连接器_v{VERSION}"
 
 # Config file path
@@ -365,9 +365,9 @@ class RemoteClient:
         # 双击传给远程主机
         self.canvas.bind("<Double-Button-1>", lambda e: self.send_cmd("doubleclick", "1"))
         
-        # 粘贴
-        self.root.bind("<Control-v>", self.on_paste)
-        self.root.bind("<Control-V>", self.on_paste)
+        # 粘贴（Ctrl+Shift+V 从Windows本地剪贴板粘贴）
+        self.root.bind("<Control-Shift-v>", self.on_paste)
+        self.root.bind("<Control-Shift-V>", self.on_paste)
     
     def setup_statusbar(self):
         """设置状态栏"""
@@ -637,9 +637,15 @@ class RemoteClient:
         
         # 2. Ctrl 组合键
         if is_ctrl:
-            if low_ks == 'v':
+            # Ctrl+Shift+V = 从Windows本地剪贴板粘贴
+            if is_shift and low_ks == 'v':
                 self.do_paste()
-                print("[Key] Ctrl+V paste")
+                print("[Key] Ctrl+Shift+V paste from local")
+                return "break"
+            # Ctrl+V = 发送给远程，让远程自己处理剪贴板
+            if low_ks == 'v':
+                self.send_cmd("key", "ctrl+v")
+                print("[Key] Ctrl+V -> remote")
                 return "break"
             elif low_ks == 'c':
                 self.send_cmd("key", "ctrl+c")

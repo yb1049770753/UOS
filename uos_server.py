@@ -512,11 +512,18 @@ class UOSServerGUI:
                 os.system(cmd)
             
             elif action == 'key':
-                # Toggle键和组合键不使用--clearmodifiers
                 toggle_keys = ('Caps_Lock', 'Num_Lock', 'Scroll_Lock')
-                if value in toggle_keys or '+' in value:
+                if value in toggle_keys:
+                    # Toggle键直接发送
                     cmd = f"DISPLAY=:0 xdotool key {value}"
+                elif '+' in value:
+                    # 组合键用 keydown/keyup 确保正确模拟
+                    keys = value.split('+')
+                    modifiers = ' '.join(keys[:-1])
+                    main_key = keys[-1]
+                    cmd = f"DISPLAY=:0 xdotool keydown {modifiers} key {main_key} keyup {modifiers}"
                 else:
+                    # 单键用 --clearmodifiers 避免修饰键残留干扰
                     cmd = f"DISPLAY=:0 xdotool key --clearmodifiers {value}"
                 os.system(cmd)
             
