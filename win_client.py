@@ -682,14 +682,20 @@ class RemoteClient:
                 if cw > 10 and ch > 10:
                     img = img.resize((cw, ch), Image.Resampling.LANCZOS)
                 
+                # 保存引用防止垃圾回收，保留最近3帧
+                if not hasattr(self, '_photo_refs'):
+                    self._photo_refs = []
                 self.photo = ImageTk.PhotoImage(image=img)
+                self._photo_refs.append(self.photo)
+                if len(self._photo_refs) > 3:
+                    self._photo_refs.pop(0)
                 
                 if self.image_id is None:
                     self.image_id = self.canvas.create_image(0, 0, anchor=tk.NW, image=self.photo)
                 else:
                     self.canvas.itemconfig(self.image_id, image=self.photo)
-        except:
-            pass
+        except Exception as e:
+            print(f"[Display Error] {e}")
         
         if self.is_running:
             self.root.after(20, self.update_loop)
