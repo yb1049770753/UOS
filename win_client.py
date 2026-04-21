@@ -12,6 +12,10 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 import tkinter as tk
 from PIL import Image, ImageTk
 
+# Version
+VERSION = "1.2"
+APP_NAME = f"UOS远程连接器_v{VERSION}"
+
 # Config file path
 CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".uos_remote_config.pkl")
 
@@ -97,7 +101,7 @@ class RemoteClient:
     
     def show_connect_dialog(self):
         """显示连接对话框 - 直接在主窗口上"""
-        self.root.title("UOS 远程连接器")
+        self.root.title(APP_NAME)
         self.root.geometry("400x300")
         self.root.resizable(False, False)
         
@@ -188,7 +192,7 @@ class RemoteClient:
             # 连接指令端口
             self.cmd_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.cmd_sock.settimeout(10)
-            self.cmd_sock.connect((self.uos_ip, 8888))
+            self.cmd_sock.connect((self.uos_ip, 12138))
             
             # 发送密码认证
             self.cmd_sock.sendall(f"auth,{self.password}\n".encode())
@@ -228,7 +232,7 @@ class RemoteClient:
             # 连接画面端口
             self.img_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.img_sock.settimeout(10)
-            self.img_sock.connect((self.uos_ip, 9999))
+            self.img_sock.connect((self.uos_ip, 12139))
             
             return True
             
@@ -239,7 +243,7 @@ class RemoteClient:
     def setup_ui(self):
         """设置主界面"""
         self.root.deiconify()
-        self.root.title(f"远程控制 - {self.uos_ip}")
+        self.root.title(f"{APP_NAME} - {self.uos_ip}")
         self.root.geometry("1280x850")
         
         # 强制禁用IME
