@@ -67,7 +67,7 @@ def linux_screenshot(bbox=None):
     
     try:
         if method == 'scrot':
-            subprocess.run(['scrot', '-o', tmp], capture_output=True, timeout=3, env=env)
+            subprocess.run(['scrot', '-z', '-o', tmp], capture_output=True, timeout=3, env=env)
         elif method == 'import':
             subprocess.run(['import', '-window', 'root', '-quality', '1', tmp],
                          capture_output=True, timeout=3, env=env)
