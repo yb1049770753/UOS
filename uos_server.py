@@ -531,26 +531,19 @@ class UOSServerGUI:
                     print("[Screen] Screenshot failed, using default")
                     img = Image.new('RGB', (1920, 1080), (100, 100, 100))
                 
-                # 根据画质缩放截图，减轻CPU压力
-                scale = max(0.3, self.quality / 100)
-                if scale < 1.0:
-                    new_w = int(img.width * scale)
-                    new_h = int(img.height * scale)
-                    img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-                
                 buf = io.BytesIO()
                 img.save(buf, format='JPEG', quality=self.quality)
                 data = buf.getvalue()
                 
                 if len(data) < 100:
-                    time.sleep(0.1)
+                    time.sleep(0.05)
                     continue
                 
                 conn.sendall(str(len(data)).ljust(16).encode() + data)
                 frame_count += 1
-                if frame_count % 10 == 0:
-                    print(f"[Screen] Sent {frame_count} frames, {len(data)} bytes, scale={scale:.2f}")
-                time.sleep(0.08)
+                if frame_count % 30 == 0:
+                    print(f"[Screen] Sent {frame_count} frames, {len(data)} bytes")
+                time.sleep(0.05)
             except Exception as e:
                 print(f"[Screen] Error: {e}")
                 import traceback

@@ -15,7 +15,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 
 # Version
-VERSION = "1.5"
+VERSION = "1.6"
 APP_NAME = f"UOS远程连接器_v{VERSION}"
 
 # Config file path
@@ -435,27 +435,31 @@ class RemoteClient:
             print(f"发送文件错误: {e}")
     
     def on_paste(self, event):
-        """处理粘贴"""
+        """处理粘贴事件绑定"""
+        self.do_paste()
+        return "break"
+    
+    def do_paste(self):
+        """执行粘贴"""
         try:
             import win32clipboard
             win32clipboard.OpenClipboard()
             try:
                 # 检查是否有文件
                 if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_HDROP):
-                    # 文件粘贴
                     files = win32clipboard.GetClipboardData(win32clipboard.CF_HDROP)
                     for f_path in files:
                         if os.path.isfile(f_path):
                             self.transfer_queue.put(f_path)
                 elif win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_UNICODETEXT):
-                    # 文本粘贴
                     text = win32clipboard.GetClipboardData(win32clipboard.CF_UNICODETEXT)
-                    self.send_cmd("type", text)
+                    if text:
+                        print(f"[Paste] Sending {len(text)} chars")
+                        self.send_cmd("type", text)
             finally:
                 win32clipboard.CloseClipboard()
-        except:
-            pass
-        return "break"
+        except Exception as e:
+            print(f"[Paste Error] {e}")
     
     def clipboard_monitor(self):
         """监控剪贴板变化"""
@@ -525,7 +529,7 @@ class RemoteClient:
             pass
     
     def on_key(self, e):
-        """键盘事件处理 - 完整键盘功能支持"""
+        """键盘事件处理"""
         ks, char = e.keysym, e.char
         low_ks = ks.lower()
         is_ctrl = e.state & 0x0004
@@ -535,107 +539,100 @@ class RemoteClient:
         if ks == 'Process':
             return "break"
         
-        # 1. Ctrl+Shift 组合 - 切换输入法
+        # 调试输出（首次按键时显示）
+        if not hasattr(self, '_key_debug_shown'):
+            print(f"[Key] keysym={ks} char={repr(char)} state={e.state}")
+            self._key_debug_shown = True
+        
+        # 1. Ctrl+Shift 组合
         if is_ctrl and is_shift:
             self.send_cmd("key", "ctrl+shift")
+            print("[Key] Ctrl+Shift")
             return "break"
         
-        # 2. Ctrl 组合键（排除 Ctrl+Shift 已处理的情况）
+        # 2. Ctrl 组合键
         if is_ctrl:
-            if low_ks == 'space':
+            if low_ks == 'v':
+                self.do_paste()
+                print("[Key] Ctrl+V paste")
+                return "break"
+            elif low_ks == 'c':
+                self.send_cmd("key", "ctrl+c")
+                print("[Key] Ctrl+C")
+                return "break"
+            elif low_ks == 'x':
+                self.send_cmd("key", "ctrl+x")
+                print("[Key] Ctrl+X")
+                return "break"
+            elif low_ks == 'a':
+                self.send_cmd("key", "ctrl+a")
+                print("[Key] Ctrl+A")
+                return "break"
+            elif low_ks == 'z':
+                self.send_cmd("key", "ctrl+z")
+                print("[Key] Ctrl+Z")
+                return "break"
+            elif low_ks == 'space':
                 self.send_cmd("key", "ctrl+space")
-            elif low_ks in ['c', 'v', 'x', 'z', 'a', 's', 'f', 'p']:
-                # 常用 Ctrl 快捷键
-                self.send_cmd("key", f"ctrl+{low_ks}")
+                print("[Key] Ctrl+Space")
+                return "break"
             elif len(low_ks) == 1:
                 self.send_cmd("key", f"ctrl+{low_ks}")
+                print(f"[Key] Ctrl+{low_ks}")
             return "break"
         
-        # 3. Shift 组合键（用于输入上档符号）
+        # 3. Shift 组合键
         if is_shift:
-            # Shift + 数字键/符号键输入上档符号
-            shift_symbols = {
-                # 数字键上档
-                '1': '!', '2': '@', '3': '#', '4': '$', '5': '%',
-                '6': '^', '7': '&', '8': '*', '9': '(', '0': ')',
-                # 符号键上档
-                'minus': '_', 'equal': '+', 
-                'bracketleft': '{', 'bracketright': '}', 'backslash': '|',
-                'semicolon': ':', 'apostrophe': '"',
-                'comma': '<', 'period': '>', 'slash': '?',
-                'grave': '~',
-                # 直接符号（tkinter keysym）
-                '-': '_', '=': '+', '[': '{', ']': '}', '\\': '|',
-                ';': ':', "'": '"', ',': '<', '.': '>', '/': '?', '`': '~'
-            }
-            if ks in shift_symbols:
-                self.send_cmd("type", shift_symbols[ks])
-                return "break"
-            # 处理 tkinter 返回的符号名称
-            symbol_names = {
-                'exclam': '!', 'at': '@', 'numbersign': '#', 'dollar': '$',
-                'percent': '%', 'asciicircum': '^', 'ampersand': '&',
-                'asterisk': '*', 'parenleft': '(', 'parenright': ')',
-                'underscore': '_', 'plus': '+',
-                'braceleft': '{', 'braceright': '}', 'bar': '|',
-                'colon': ':', 'quotedbl': '"',
-                'less': '<', 'greater': '>', 'question': '?',
-                'asciitilde': '~'
-            }
-            if low_ks in symbol_names:
-                self.send_cmd("type", symbol_names[low_ks])
+            shift_map = {'1':'!','2':'@','3':'#','4':'$','5':'%','6':'^','7':'&','8':'*','9':'(','0':')',
+                         'minus':'_','equal':'+','bracketleft':'{','bracketright':'}','backslash':'|',
+                         'semicolon':':','apostrophe':'"','comma':'<','period':'>','slash':'?','grave':'~',
+                         '-':'_','=':'+','[':'{',']':'}','\\':'|',';':':',"'":'"',',':'<','.':'>','/':'?','`':'~'}
+            if ks in shift_map:
+                self.send_cmd("type", shift_map[ks])
                 return "break"
         
         # 4. 特殊功能键
-        spec_keys = {
-            'Up': 'Up', 'Down': 'Down', 'Left': 'Left', 'Right': 'Right',
-            'Return': 'Return', 'BackSpace': 'BackSpace', 'Tab': 'Tab',
-            'Escape': 'Escape', 'space': 'space', 'Delete': 'Delete',
-            'Home': 'Home', 'End': 'End', 'Prior': 'Page_Up', 'Next': 'Page_Down',
-            'Insert': 'Insert', 'Pause': 'Pause', 'Scroll_Lock': 'Scroll_Lock',
-            'Print': 'Print', 'Linefeed': 'Linefeed'
-        }
-        if ks in spec_keys:
-            self.send_cmd("key", spec_keys[ks])
+        spec_map = {'Up':'Up','Down':'Down','Left':'Left','Right':'Right',
+                    'Return':'Return','BackSpace':'BackSpace','Tab':'Tab',
+                    'Escape':'Escape','space':'space','Delete':'Delete',
+                    'Home':'Home','End':'End','Prior':'Page_Up','Next':'Page_Down',
+                    'Insert':'Insert','Pause':'Pause','Scroll_Lock':'Scroll_Lock'}
+        if ks in spec_map:
+            self.send_cmd("key", spec_map[ks])
+            print(f"[Key] {spec_map[ks]}")
             return "break"
         
-        # 5. F1-F12 功能键
+        # 5. F1-F12
         if ks.startswith('F') and ks[1:].isdigit():
             self.send_cmd("key", ks)
+            print(f"[Key] {ks}")
             return "break"
         
         # 6. 数字键盘
-        numpad_keys = {
-            'KP_0': '0', 'KP_1': '1', 'KP_2': '2', 'KP_3': '3', 'KP_4': '4',
-            'KP_5': '5', 'KP_6': '6', 'KP_7': '7', 'KP_8': '8', 'KP_9': '9',
-            'KP_Add': '+', 'KP_Subtract': '-', 'KP_Multiply': '*', 'KP_Divide': '/',
-            'KP_Enter': 'Return', 'KP_Decimal': '.', 'KP_Equal': '='
-        }
-        if ks in numpad_keys:
-            self.send_cmd("key", numpad_keys[ks])
+        numpad = {'KP_0':'0','KP_1':'1','KP_2':'2','KP_3':'3','KP_4':'4',
+                  'KP_5':'5','KP_6':'6','KP_7':'7','KP_8':'8','KP_9':'9',
+                  'KP_Add':'plus','KP_Subtract':'minus','KP_Multiply':'asterisk',
+                  'KP_Divide':'slash','KP_Enter':'Return','KP_Decimal':'period'}
+        if ks in numpad:
+            self.send_cmd("key", numpad[ks])
             return "break"
         
-        # 7. 字母键（处理 Shift 和 Caps Lock）
+        # 7. 字母键
         if len(ks) == 1 and ks.isalpha():
-            # 判断是否应该大写
             should_upper = (is_shift and not is_caps) or (is_caps and not is_shift)
-            
             if should_upper:
-                # 大写字母 - 使用 Shift+字母
                 self.send_cmd("key", f"shift+{low_ks}")
             else:
-                # 小写字母
                 self.send_cmd("key", low_ks)
             return "break"
         
-        # 8. 数字键（0-9）
+        # 8. 数字键
         if len(ks) == 1 and ks.isdigit():
             self.send_cmd("type", ks)
             return "break"
         
-        # 9. 符号键（直接输入，不带 Shift）
-        symbol_keys = ['-', '=', '[', ']', '\\', ';', "'", ',', '.', '/', '`']
-        if len(ks) == 1 and ks in symbol_keys:
+        # 9. 符号键
+        if len(ks) == 1 and ks in ['-','=','[',']','\\',';',"'",',','.','/','`']:
             self.send_cmd("type", ks)
             return "break"
         
@@ -644,7 +641,7 @@ class RemoteClient:
             self.send_cmd("type", char)
             return "break"
         
-        # 11. 其他键直接发送
+        # 11. 其他键
         if len(ks) == 1:
             self.send_cmd("key", ks)
             return "break"
