@@ -109,7 +109,7 @@ class UOSServerGUI:
         self.is_running = True
         self.current_screen = "primary"
         self.screens_info = []
-        self.quality = 50
+        self.quality = 35
         
         self.detect_screens()
         self.local_ip = self.get_local_ip()
@@ -414,6 +414,10 @@ class UOSServerGUI:
                         self.handle_file_receive(conn, line_str)
                         continue
                     
+                    if line_str.startswith("download,"):
+                        self.handle_file_send(conn, line_str)
+                        continue
+                    
                     if line_str.startswith("clipboard,"):
                         _, content = line_str.split(',', 1)
                         self.set_clipboard(content)
@@ -451,6 +455,36 @@ class UOSServerGUI:
         except Exception as e:
             print(f"File receive error: {e}")
     
+    def handle_file_send(self, conn, line_str):
+        """发送文件给客户端"""
+        try:
+            _, filepath = line_str.split(',', 1)
+            filepath = filepath.strip()
+            
+            if not os.path.isfile(filepath):
+                conn.sendall(f"error,文件不存在: {filepath}\n".encode())
+                return
+            
+            fname = os.path.basename(filepath)
+            fsize = os.path.getsize(filepath)
+            
+            conn.sendall(f"file_data,{fname},{fsize}\n".encode())
+            
+            with open(filepath, 'rb') as f:
+                while True:
+                    chunk = f.read(4096)
+                    if not chunk:
+                        break
+                    conn.sendall(chunk)
+            
+            print(f"File sent: {filepath}")
+        except Exception as e:
+            try:
+                conn.sendall(f"error,{str(e)}\n".encode())
+            except:
+                pass
+            print(f"File send error: {e}")
+    
     def set_clipboard(self, content):
         try:
             os.system(f'echo "{content}" | xclip -selection clipboard')
@@ -478,10 +512,10 @@ class UOSServerGUI:
                 os.system(cmd)
             
             elif action == 'key':
-                if '+' in value:
-                    keys = value.split('+')
-                    key_args = ' '.join(keys)
-                    cmd = f"DISPLAY=:0 xdotool key {key_args}"
+                # Toggle键和组合键不使用--clearmodifiers
+                toggle_keys = ('Caps_Lock', 'Num_Lock', 'Scroll_Lock')
+                if value in toggle_keys or '+' in value:
+                    cmd = f"DISPLAY=:0 xdotool key {value}"
                 else:
                     cmd = f"DISPLAY=:0 xdotool key --clearmodifiers {value}"
                 os.system(cmd)
@@ -536,14 +570,14 @@ class UOSServerGUI:
                 data = buf.getvalue()
                 
                 if len(data) < 100:
-                    time.sleep(0.05)
+                    time.sleep(0.08)
                     continue
                 
                 conn.sendall(str(len(data)).ljust(16).encode() + data)
                 frame_count += 1
-                if frame_count % 30 == 0:
-                    print(f"[Screen] Sent {frame_count} frames, {len(data)} bytes")
-                time.sleep(0.05)
+                if frame_count % 20 == 0:
+                    print(f"[Screen] Sent {frame_count} frames, {len(data)} bytes, quality={self.quality}")
+                time.sleep(0.08)
             except Exception as e:
                 print(f"[Screen] Error: {e}")
                 import traceback

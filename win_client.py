@@ -15,7 +15,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 
 # Version
-VERSION = "1.9"
+VERSION = "2.0"
 APP_NAME = f"UOS远程连接器_v{VERSION}"
 
 # Config file path
@@ -298,6 +298,10 @@ class RemoteClient:
                  bg="#f6ffed", relief=tk.FLAT,
                  command=self.upload_files).pack(side=tk.LEFT, padx=2, pady=5)
         
+        tk.Button(left_frame, text="下载", font=("微软雅黑", 9),
+                 bg="#e6f7ff", relief=tk.FLAT,
+                 command=self.download_file).pack(side=tk.LEFT, padx=2, pady=5)
+        
         # 中间按钮组
         mid_frame = tk.Frame(self.ctrl_bar, bg="#f0f0f0")
         mid_frame.pack(side=tk.LEFT, fill=tk.Y, padx=20)
@@ -348,6 +352,14 @@ class RemoteClient:
         
         # 键盘事件
         self.root.bind("<Key>", self.on_key)
+        self.root.bind("<Return>", lambda e: self.send_cmd("key", "Return") or "break")
+        # Shift+方向键显式绑定
+        self.root.bind("<Shift-Up>", lambda e: self.send_cmd("key", "shift+Up") or "break")
+        self.root.bind("<Shift-Down>", lambda e: self.send_cmd("key", "shift+Down") or "break")
+        self.root.bind("<Shift-Left>", lambda e: self.send_cmd("key", "shift+Left") or "break")
+        self.root.bind("<Shift-Right>", lambda e: self.send_cmd("key", "shift+Right") or "break")
+        # Caps Lock显式绑定
+        self.root.bind("<Caps_Lock>", lambda e: self.send_cmd("key", "Caps_Lock") or "break")
         self.canvas.focus_set()
         
         # 双击传给远程主机
@@ -435,6 +447,67 @@ class RemoteClient:
         except Exception as e:
             print(f"发送文件错误: {e}")
     
+    def download_file(self):
+        """从远程下载文件"""
+        filepath = simpledialog.askstring("下载文件", "请输入远程文件完整路径:")
+        if not filepath:
+            return
+        
+        try:
+            self.send_cmd("download", filepath)
+            
+            # 等待服务端响应
+            self.cmd_sock.settimeout(30)
+            header = b""
+            while b"\n" not in header:
+                chunk = self.cmd_sock.recv(1024)
+                if not chunk:
+                    raise Exception("连接断开")
+                header += chunk
+            
+            line = header.decode().strip()
+            if line.startswith("file_data,"):
+                _, filename, filesize = line.split(',', 2)
+                filesize = int(filesize)
+                
+                save_dir = os.path.join(os.path.expanduser("~"), "Desktop")
+                os.makedirs(save_dir, exist_ok=True)
+                save_path = os.path.join(save_dir, filename)
+                
+                base, ext = os.path.splitext(save_path)
+                counter = 1
+                while os.path.exists(save_path):
+                    save_path = f"{base}_{counter}{ext}"
+                    counter += 1
+                
+                # 接收文件数据（header中可能包含多余的数据）
+                remaining = filesize
+                extra = header.split(b"\n", 1)[1] if b"\n" in header else b""
+                
+                with open(save_path, 'wb') as f:
+                    if extra:
+                        to_write = extra[:remaining]
+                        f.write(to_write)
+                        remaining -= len(to_write)
+                    
+                    while remaining > 0:
+                        chunk = self.cmd_sock.recv(min(remaining, 4096))
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        remaining -= len(chunk)
+                
+                messagebox.showinfo("下载完成", f"文件已保存到桌面:\n{os.path.basename(save_path)}")
+            elif line.startswith("error,"):
+                messagebox.showerror("下载失败", line.split(',', 1)[1])
+            else:
+                messagebox.showerror("下载失败", f"未知响应: {line}")
+                
+        except Exception as e:
+            messagebox.showerror("下载失败", str(e))
+        finally:
+            self.cmd_sock.settimeout(None)
+    
     def on_paste(self, event):
         """处理粘贴事件绑定"""
         self.do_paste()
@@ -508,7 +581,10 @@ class RemoteClient:
                                              command=self.toggle_fullscreen)
             self.exit_fs_btn.place(relx=0.98, rely=0.02, anchor=tk.NE)
         else:
+            # 重新按正确顺序pack所有控件
+            self.canvas.pack_forget()
             self.ctrl_bar.pack(side=tk.TOP, fill=tk.X)
+            self.canvas.pack(fill=tk.BOTH, expand=True)
             self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
             if hasattr(self, 'exit_fs_btn'):
                 self.exit_fs_btn.place_forget()
