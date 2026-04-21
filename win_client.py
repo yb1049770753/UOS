@@ -15,7 +15,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 
 # Version
-VERSION = "1.8"
+VERSION = "1.9"
 APP_NAME = f"UOS远程连接器_v{VERSION}"
 
 # Config file path
@@ -247,6 +247,7 @@ class RemoteClient:
         self.root.deiconify()
         self.root.title(f"{APP_NAME} - {self.uos_ip}")
         self.root.geometry("1280x850")
+        self.root.resizable(True, True)
         
         # 强制禁用IME
         self.root.bind("<FocusIn>", self.force_disable_ime)
@@ -500,16 +501,17 @@ class RemoteClient:
         if self.fullscreen:
             self.ctrl_bar.pack_forget()
             self.status_bar.pack_forget()
-            # 创建退出全屏按钮
-            self.exit_fs_btn = tk.Button(self.root, text="退出全屏 [ESC]", font=("微软雅黑", 9),
-                                         bg="#ff4d4f", fg="white", relief=tk.FLAT,
-                                         command=self.toggle_fullscreen)
+            # 创建或显示退出全屏按钮
+            if not hasattr(self, 'exit_fs_btn'):
+                self.exit_fs_btn = tk.Button(self.root, text="退出全屏 [ESC]", font=("微软雅黑", 9),
+                                             bg="#ff4d4f", fg="white", relief=tk.FLAT,
+                                             command=self.toggle_fullscreen)
             self.exit_fs_btn.place(relx=0.98, rely=0.02, anchor=tk.NE)
         else:
             self.ctrl_bar.pack(side=tk.TOP, fill=tk.X)
             self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
-            if hasattr(self, 'exit_fs_btn') and self.exit_fs_btn.winfo_exists():
-                self.exit_fs_btn.destroy()
+            if hasattr(self, 'exit_fs_btn'):
+                self.exit_fs_btn.place_forget()
     
     def on_window_resize(self, event):
         """窗口大小变化"""
@@ -604,8 +606,8 @@ class RemoteClient:
         if is_shift:
             # Shift+方向键（选择文本）
             if ks in ['Up', 'Down', 'Left', 'Right']:
-                self.send_cmd("key", f"shift+{low_ks}")
-                print(f"[Key] shift+{low_ks}")
+                self.send_cmd("key", f"shift+{ks}")
+                print(f"[Key] shift+{ks}")
                 return "break"
             # Shift+上档符号
             shift_map = {'1':'!','2':'@','3':'#','4':'$','5':'%','6':'^','7':'&','8':'*','9':'(','0':')',
@@ -631,6 +633,12 @@ class RemoteClient:
                 return "break"
             self.send_cmd("key", "Escape")
             print("[Key] Escape")
+            return "break"
+        
+        # 回车键（Return/Enter 两种键名）
+        if ks in ('Return', 'Enter', 'KP_Enter'):
+            self.send_cmd("key", "Return")
+            print("[Key] Return/Enter")
             return "break"
         
         if ks in spec_map:

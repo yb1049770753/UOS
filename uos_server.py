@@ -483,7 +483,7 @@ class UOSServerGUI:
                     key_args = ' '.join(keys)
                     cmd = f"DISPLAY=:0 xdotool key {key_args}"
                 else:
-                    cmd = f"DISPLAY=:0 xdotool key {value}"
+                    cmd = f"DISPLAY=:0 xdotool key --clearmodifiers {value}"
                 os.system(cmd)
             
             elif action == 'doubleclick':
