@@ -15,7 +15,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 
 # Version
-VERSION = "2.1"
+VERSION = "2.2"
 APP_NAME = f"UOS远程连接器_v{VERSION}"
 
 # Config file path
@@ -55,6 +55,8 @@ class RemoteClient:
         # 剪贴板监控
         self.last_clipboard = ""
         self.clipboard_monitor_running = False
+        self.last_remote_clip = ""
+        self.downloading = False
         
         # 历史记录
         self.history_ips = self.config.get('history_ips', [])
@@ -235,6 +237,9 @@ class RemoteClient:
             self.img_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.img_sock.settimeout(10)
             self.img_sock.connect((self.uos_ip, 12139))
+            
+            # 启动接收线程（处理服务端推送的消息）
+            threading.Thread(target=self.recv_worker, daemon=True).start()
             
             return True
             
@@ -453,6 +458,7 @@ class RemoteClient:
         if not filepath:
             return
         
+        self.downloading = True
         try:
             self.send_cmd("download", filepath)
             
@@ -506,6 +512,7 @@ class RemoteClient:
         except Exception as e:
             messagebox.showerror("下载失败", str(e))
         finally:
+            self.downloading = False
             self.cmd_sock.settimeout(None)
     
     def on_paste(self, event):
@@ -514,18 +521,12 @@ class RemoteClient:
         return "break"
     
     def do_paste(self):
-        """执行粘贴"""
+        """从Windows本地剪贴板粘贴文本到远程"""
         try:
             import win32clipboard
             win32clipboard.OpenClipboard()
             try:
-                # 检查是否有文件
-                if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_HDROP):
-                    files = win32clipboard.GetClipboardData(win32clipboard.CF_HDROP)
-                    for f_path in files:
-                        if os.path.isfile(f_path):
-                            self.transfer_queue.put(f_path)
-                elif win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_UNICODETEXT):
+                if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_UNICODETEXT):
                     text = win32clipboard.GetClipboardData(win32clipboard.CF_UNICODETEXT)
                     if text:
                         print(f"[Paste] Sending {len(text)} chars")
@@ -613,6 +614,76 @@ class RemoteClient:
         except:
             pass
     
+    def recv_worker(self):
+        """接收服务端推送消息的线程"""
+        buffer = b""
+        while self.is_running:
+            try:
+                if self.downloading:
+                    time.sleep(0.1)
+                    continue
+                self.cmd_sock.settimeout(0.5)
+                data = self.cmd_sock.recv(4096)
+                if not data:
+                    break
+                buffer += data
+                while b'\n' in buffer:
+                    line, buffer = buffer.split(b'\n', 1)
+                    self.handle_server_msg(line.decode('utf-8', errors='ignore').strip())
+            except socket.timeout:
+                pass
+            except Exception as e:
+                print(f"[Recv] Error: {e}")
+                break
+    
+    def handle_server_msg(self, msg):
+        """处理服务端推送的消息"""
+        if not msg:
+            return
+        if msg.startswith('remote_clip,'):
+            _, encoded = msg.split(',', 1)
+            try:
+                import base64
+                import win32clipboard
+                text = base64.b64decode(encoded).decode('utf-8')
+                if text == self.last_remote_clip:
+                    return
+                self.last_remote_clip = text
+                win32clipboard.OpenClipboard()
+                win32clipboard.EmptyClipboard()
+                win32clipboard.SetClipboardData(win32clipboard.CF_UNICODETEXT, text)
+                win32clipboard.CloseClipboard()
+                print(f"[Clip] Synced from remote, {len(text)} chars")
+            except Exception as e:
+                print(f"[Clip] Error: {e}")
+        elif msg.startswith('error,'):
+            print(f"[Server] {msg}")
+    
+    def has_local_files(self):
+        """检查Windows剪贴板是否有文件"""
+        try:
+            import win32clipboard
+            win32clipboard.OpenClipboard()
+            has_files = win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_HDROP)
+            win32clipboard.CloseClipboard()
+            return has_files
+        except:
+            return False
+    
+    def paste_files(self):
+        """从Windows剪贴板粘贴文件到远程"""
+        try:
+            import win32clipboard
+            win32clipboard.OpenClipboard()
+            files = win32clipboard.GetClipboardData(win32clipboard.CF_HDROP)
+            for f_path in files:
+                if os.path.isfile(f_path):
+                    self.transfer_queue.put(f_path)
+                    print(f"[Paste] Queue file: {f_path}")
+            win32clipboard.CloseClipboard()
+        except Exception as e:
+            print(f"[Paste Files] Error: {e}")
+    
     def on_key(self, e):
         """键盘事件处理"""
         ks, char = e.keysym, e.char
@@ -642,8 +713,11 @@ class RemoteClient:
                 self.do_paste()
                 print("[Key] Ctrl+Shift+V paste from local")
                 return "break"
-            # Ctrl+V = 发送给远程，让远程自己处理剪贴板
+            # Ctrl+V = 智能粘贴：有文件传文件，否则发送ctrl+v给远程
             if low_ks == 'v':
+                if self.has_local_files():
+                    self.paste_files()
+                    return "break"
                 self.send_cmd("key", "ctrl+v")
                 print("[Key] Ctrl+V -> remote")
                 return "break"

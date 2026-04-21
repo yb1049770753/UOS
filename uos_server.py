@@ -109,7 +109,9 @@ class UOSServerGUI:
         self.is_running = True
         self.current_screen = "primary"
         self.screens_info = []
-        self.quality = 35
+        self.quality = 25
+        self.client_conn = None
+        self.last_remote_clipboard = ""
         
         self.detect_screens()
         self.local_ip = self.get_local_ip()
@@ -122,6 +124,7 @@ class UOSServerGUI:
         
         threading.Thread(target=self.handle_commands, daemon=True).start()
         threading.Thread(target=self.start_screen_server, daemon=True).start()
+        threading.Thread(target=self.remote_clipboard_sync, daemon=True).start()
         
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
     
@@ -366,6 +369,7 @@ class UOSServerGUI:
     
     def handle_client(self, conn, addr):
         authenticated = False
+        self.client_conn = conn
         
         while self.is_running:
             try:
@@ -429,7 +433,29 @@ class UOSServerGUI:
                 print(f"Client error: {e}")
                 break
         
+        if self.client_conn is conn:
+            self.client_conn = None
         conn.close()
+    
+    def remote_clipboard_sync(self):
+        """UOS→Windows 剪贴板同步"""
+        while self.is_running:
+            try:
+                if self.client_conn:
+                    result = subprocess.run(
+                        ['xclip', '-selection', 'clipboard', '-o'],
+                        capture_output=True, text=True, timeout=2
+                    )
+                    if result.returncode == 0:
+                        content = result.stdout
+                        if content and content != self.last_remote_clipboard:
+                            self.last_remote_clipboard = content
+                            import base64
+                            encoded = base64.b64encode(content.encode('utf-8')).decode('ascii')
+                            self.client_conn.sendall(f"remote_clip,{encoded}\n".encode())
+            except Exception as e:
+                pass
+            time.sleep(1)
     
     def handle_file_receive(self, conn, line_str):
         try:
@@ -577,14 +603,14 @@ class UOSServerGUI:
                 data = buf.getvalue()
                 
                 if len(data) < 100:
-                    time.sleep(0.08)
+                    time.sleep(0.1)
                     continue
                 
                 conn.sendall(str(len(data)).ljust(16).encode() + data)
                 frame_count += 1
-                if frame_count % 20 == 0:
+                if frame_count % 15 == 0:
                     print(f"[Screen] Sent {frame_count} frames, {len(data)} bytes, quality={self.quality}")
-                time.sleep(0.08)
+                time.sleep(0.1)
             except Exception as e:
                 print(f"[Screen] Error: {e}")
                 import traceback
