@@ -15,7 +15,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 
 # Version
-VERSION = "1.4"
+VERSION = "1.5"
 APP_NAME = f"UOS远程连接器_v{VERSION}"
 
 # Config file path
@@ -47,7 +47,7 @@ class RemoteClient:
         self.image_id = None
         self.img_queue = queue.Queue(maxsize=2)
         self.fullscreen = False
-        self.quality = 80
+        self.quality = 50
         
         # 文件传输
         self.transfer_queue = queue.Queue()
@@ -349,8 +349,8 @@ class RemoteClient:
         self.root.bind("<Key>", self.on_key)
         self.canvas.focus_set()
         
-        # 双击全屏
-        self.canvas.bind("<Double-Button-1>", lambda e: self.toggle_fullscreen())
+        # 双击传给远程主机
+        self.canvas.bind("<Double-Button-1>", lambda e: self.send_cmd("doubleclick", "1"))
         
         # 粘贴
         self.root.bind("<Control-v>", self.on_paste)

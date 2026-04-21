@@ -109,7 +109,7 @@ class UOSServerGUI:
         self.is_running = True
         self.current_screen = "primary"
         self.screens_info = []
-        self.quality = 80
+        self.quality = 50
         
         self.detect_screens()
         self.local_ip = self.get_local_ip()
@@ -486,6 +486,10 @@ class UOSServerGUI:
                     cmd = f"DISPLAY=:0 xdotool key {value}"
                 os.system(cmd)
             
+            elif action == 'doubleclick':
+                cmd = f"DISPLAY=:0 xdotool click --repeat 2 {value}"
+                os.system(cmd)
+            
             elif action in ['mousedown', 'mouseup', 'click']:
                 cmd = f"DISPLAY=:0 xdotool {action} {value}"
                 os.system(cmd)
@@ -527,21 +531,26 @@ class UOSServerGUI:
                     print("[Screen] Screenshot failed, using default")
                     img = Image.new('RGB', (1920, 1080), (100, 100, 100))
                 
+                # 根据画质缩放截图，减轻CPU压力
+                scale = max(0.3, self.quality / 100)
+                if scale < 1.0:
+                    new_w = int(img.width * scale)
+                    new_h = int(img.height * scale)
+                    img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                
                 buf = io.BytesIO()
                 img.save(buf, format='JPEG', quality=self.quality)
                 data = buf.getvalue()
-                print(f"[Screen] JPEG size={len(data)} bytes")
                 
                 if len(data) < 100:
-                    print(f"[Screen] Image too small: {len(data)} bytes")
                     time.sleep(0.1)
                     continue
                 
                 conn.sendall(str(len(data)).ljust(16).encode() + data)
                 frame_count += 1
-                if frame_count % 25 == 0:
-                    print(f"[Screen] Sent {frame_count} frames, {len(data)} bytes")
-                time.sleep(0.04)
+                if frame_count % 10 == 0:
+                    print(f"[Screen] Sent {frame_count} frames, {len(data)} bytes, scale={scale:.2f}")
+                time.sleep(0.08)
             except Exception as e:
                 print(f"[Screen] Error: {e}")
                 import traceback
