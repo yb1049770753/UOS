@@ -15,7 +15,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 
 # Version
-VERSION = "1.6"
+VERSION = "1.8"
 APP_NAME = f"UOS远程连接器_v{VERSION}"
 
 # Config file path
@@ -278,22 +278,22 @@ class RemoteClient:
         if len(self.screens_info) > 1:
             self.screen_var = tk.StringVar(value=self.current_screen)
             
-            tk.Button(left_frame, text="📺 主屏", font=("微软雅黑", 9),
+            tk.Button(left_frame, text="主屏", font=("微软雅黑", 9),
                      bg="#e6f7ff", relief=tk.FLAT,
                      command=lambda: self.switch_screen("primary")).pack(side=tk.LEFT, padx=2, pady=5)
             
-            tk.Button(left_frame, text="📺 副屏", font=("微软雅黑", 9),
+            tk.Button(left_frame, text="副屏", font=("微软雅黑", 9),
                      bg="#f6ffed", relief=tk.FLAT,
                      command=lambda: self.switch_screen("secondary")).pack(side=tk.LEFT, padx=2, pady=5)
             
-            tk.Button(left_frame, text="📺 全屏", font=("微软雅黑", 9),
+            tk.Button(left_frame, text="全部", font=("微软雅黑", 9),
                      bg="#fff7e6", relief=tk.FLAT,
                      command=lambda: self.switch_screen("all")).pack(side=tk.LEFT, padx=2, pady=5)
             
             ttk.Separator(left_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=8)
         
         # 文件传输按钮
-        tk.Button(left_frame, text="📁 传文件", font=("微软雅黑", 9),
+        tk.Button(left_frame, text="传文件", font=("微软雅黑", 9),
                  bg="#f6ffed", relief=tk.FLAT,
                  command=self.upload_files).pack(side=tk.LEFT, padx=2, pady=5)
         
@@ -301,11 +301,11 @@ class RemoteClient:
         mid_frame = tk.Frame(self.ctrl_bar, bg="#f0f0f0")
         mid_frame.pack(side=tk.LEFT, fill=tk.Y, padx=20)
         
-        tk.Button(mid_frame, text="⌨️ Ctrl+Shift 输入法", font=("微软雅黑", 9),
+        tk.Button(mid_frame, text="Ctrl+Shift", font=("微软雅黑", 9),
                  bg="#e6f7ff", relief=tk.FLAT,
                  command=lambda: self.send_cmd("key", "ctrl+shift")).pack(side=tk.LEFT, padx=2, pady=5)
         
-        tk.Button(mid_frame, text="🔄 ESC", font=("微软雅黑", 9),
+        tk.Button(mid_frame, text="ESC", font=("微软雅黑", 9),
                  bg="#fff1f0", relief=tk.FLAT,
                  command=lambda: self.send_cmd("key", "Escape")).pack(side=tk.LEFT, padx=2, pady=5)
         
@@ -324,11 +324,11 @@ class RemoteClient:
         right_frame = tk.Frame(self.ctrl_bar, bg="#f0f0f0")
         right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=5)
         
-        tk.Button(right_frame, text="⛶ 全屏", font=("微软雅黑", 9),
+        tk.Button(right_frame, text="全屏", font=("微软雅黑", 9),
                  bg="#f9f0ff", relief=tk.FLAT,
                  command=self.toggle_fullscreen).pack(side=tk.LEFT, padx=2, pady=5)
         
-        tk.Button(right_frame, text="❌ 断开", font=("微软雅黑", 9),
+        tk.Button(right_frame, text="断开", font=("微软雅黑", 9),
                  bg="#ff4d4f", fg="white", relief=tk.FLAT,
                  command=self.disconnect).pack(side=tk.LEFT, padx=2, pady=5)
     
@@ -500,9 +500,16 @@ class RemoteClient:
         if self.fullscreen:
             self.ctrl_bar.pack_forget()
             self.status_bar.pack_forget()
+            # 创建退出全屏按钮
+            self.exit_fs_btn = tk.Button(self.root, text="退出全屏 [ESC]", font=("微软雅黑", 9),
+                                         bg="#ff4d4f", fg="white", relief=tk.FLAT,
+                                         command=self.toggle_fullscreen)
+            self.exit_fs_btn.place(relx=0.98, rely=0.02, anchor=tk.NE)
         else:
             self.ctrl_bar.pack(side=tk.TOP, fill=tk.X)
             self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+            if hasattr(self, 'exit_fs_btn') and self.exit_fs_btn.winfo_exists():
+                self.exit_fs_btn.destroy()
     
     def on_window_resize(self, event):
         """窗口大小变化"""
@@ -572,6 +579,18 @@ class RemoteClient:
                 self.send_cmd("key", "ctrl+z")
                 print("[Key] Ctrl+Z")
                 return "break"
+            elif low_ks == 'y':
+                self.send_cmd("key", "ctrl+y")
+                print("[Key] Ctrl+Y")
+                return "break"
+            elif low_ks == 's':
+                self.send_cmd("key", "ctrl+s")
+                print("[Key] Ctrl+S")
+                return "break"
+            elif low_ks == 'f':
+                self.send_cmd("key", "ctrl+f")
+                print("[Key] Ctrl+F")
+                return "break"
             elif low_ks == 'space':
                 self.send_cmd("key", "ctrl+space")
                 print("[Key] Ctrl+Space")
@@ -583,6 +602,12 @@ class RemoteClient:
         
         # 3. Shift 组合键
         if is_shift:
+            # Shift+方向键（选择文本）
+            if ks in ['Up', 'Down', 'Left', 'Right']:
+                self.send_cmd("key", f"shift+{low_ks}")
+                print(f"[Key] shift+{low_ks}")
+                return "break"
+            # Shift+上档符号
             shift_map = {'1':'!','2':'@','3':'#','4':'$','5':'%','6':'^','7':'&','8':'*','9':'(','0':')',
                          'minus':'_','equal':'+','bracketleft':'{','bracketright':'}','backslash':'|',
                          'semicolon':':','apostrophe':'"','comma':'<','period':'>','slash':'?','grave':'~',
@@ -594,9 +619,20 @@ class RemoteClient:
         # 4. 特殊功能键
         spec_map = {'Up':'Up','Down':'Down','Left':'Left','Right':'Right',
                     'Return':'Return','BackSpace':'BackSpace','Tab':'Tab',
-                    'Escape':'Escape','space':'space','Delete':'Delete',
-                    'Home':'Home','End':'End','Prior':'Page_Up','Next':'Page_Down',
-                    'Insert':'Insert','Pause':'Pause','Scroll_Lock':'Scroll_Lock'}
+                    'Delete':'Delete','Home':'Home','End':'End',
+                    'Prior':'Page_Up','Next':'Page_Down',
+                    'Insert':'Insert','Pause':'Pause','Scroll_Lock':'Scroll_Lock',
+                    'Caps_Lock':'Caps_Lock'}
+        
+        # ESC 全屏时退出全屏
+        if ks == 'Escape':
+            if self.fullscreen:
+                self.toggle_fullscreen()
+                return "break"
+            self.send_cmd("key", "Escape")
+            print("[Key] Escape")
+            return "break"
+        
         if ks in spec_map:
             self.send_cmd("key", spec_map[ks])
             print(f"[Key] {spec_map[ks]}")
