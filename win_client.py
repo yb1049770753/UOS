@@ -13,7 +13,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 
 # Version
-VERSION = "1.2"
+VERSION = "1.3"
 APP_NAME = f"UOS远程连接器_v{VERSION}"
 
 # Config file path
