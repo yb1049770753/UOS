@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 import os
 import socket
@@ -11,7 +12,7 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 import tkinter as tk
 from PIL import Image, ImageTk
 
-# 配置文件路径
+# Config file path
 CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".uos_remote_config.pkl")
 
 
